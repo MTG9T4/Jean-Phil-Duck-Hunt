@@ -478,21 +478,21 @@ function draw(){
   var i;
   for (i = 0; i < ducks.length; i++) drawDuck(ducks[i]);
   drawFeathers();
-  drawPhil();
+  if (state !== 'title') drawPhil();
   if (state === 'play'){ drawCrosshair(); drawHUD(); }
   drawFlashes();
   drawBanner();
 
   if (state === 'title'){
     overlay(0.55);
-    bigText("JEAN PHIL'S", 150, 64, '#ffe45c');
-    bigText('DUCK HUNT', 215, 64, '#3ddc84');
-    if (imgHunter.width) cx.drawImage(imgHunter, W/2-105, 235, 210, 210);
-    bigText('ducks are flying. jean phil is watching.', 480, 22, '#fff');
-    bigText('aim with mouse / finger - click or tap to shoot', 512, 22, '#fff');
-    bigText('3 shells per duck - hit ' + quota() + ' of 10 to advance', 544, 22, '#fff');
-    if (best > 0) bigText('BEST ' + best, 400, 24, '#ffe45c');
-    if (Math.floor(performance.now()/500) % 2 === 0) bigText('CLICK TO START', 585, 30, '#ffe45c');
+    bigText("JEAN PHIL'S", 105, 64, '#ffe45c');
+    bigText('DUCK HUNT', 170, 64, '#3ddc84');
+    if (imgHunter.width) cx.drawImage(imgHunter, W/2-125, 195, 250, 250);
+    bigText('ducks are flying. jean phil is watching.', 478, 20, '#fff');
+    bigText('aim with mouse / finger - click or tap to shoot', 504, 20, '#fff');
+    bigText('3 shells per duck - hit ' + quota() + ' of 10 to advance', 530, 20, '#fff');
+    if (best > 0) bigText('BEST ' + best, 556, 22, '#ffe45c');
+    if (Math.floor(performance.now()/500) % 2 === 0) bigText('CLICK TO START', 586, 26, '#ffe45c');
   }
   if (state === 'intro'){
     overlay(0.45);
