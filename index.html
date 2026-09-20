@@ -78,6 +78,7 @@ var score = 0, round = 1, duckIdx = 0, hits = 0, bullets = 3;
 var best = parseInt(localStorage.getItem('jp_duck_best') || '0', 10) || 0;
 var ducks = [], feathers = [], flashes = [], clouds = [];
 var mood = 'normal', moodT = 0, popT = 0;   // normal | happy | crying
+var aimOffset = 0;   // rifle tracking angle
 var banner = '', bannerT = 0;
 var cross = { x: W/2, y: H/2 - 80 };
 var introT = 0, resolveT = 0, clearT = 0;
@@ -145,6 +146,8 @@ function shoot(sx, sy){
   bullets--;
   bang();
   flashes.push({ x: sx, y: sy, t: 0.09 });
+  var gt = gunTip();
+  flashes.push({ x: gt.x, y: gt.y, t: 0.12 });
   var hit = null;
   for (var i = 0; i < ducks.length; i++){
     var q = ducks[i];
@@ -189,6 +192,12 @@ function nextDuckOrEnd(){
 var lastT = 0;
 function update(dt){
   var i, d;
+  var haX = W/2 - 96, haY = H - 190;   // his hands, approx
+  var aa = Math.atan2(cross.y - haY, cross.x - haX) - Math.PI, ad = aa;
+  while (ad > Math.PI) ad -= Math.PI*2;
+  while (ad < -Math.PI) ad += Math.PI*2;
+  var want = Math.max(-0.45, Math.min(0.45, ad));
+  aimOffset += (want - aimOffset) * Math.min(1, dt*7);
   for (i = 0; i < clouds.length; i++){
     clouds[i].x += 9 * dt;
     if (clouds[i].x > W + 120) clouds[i].x = -120;
@@ -321,17 +330,25 @@ function drawDuck(d){
   }
   cx.restore();
 }
+function gunTip(){
+  var s = 300, x = W/2 - s/2, y = H - s - 4;
+  var pvx = x + s*0.42, pvy = y + s*0.88;
+  var tx = x + s*0.06, ty = y + s*0.335;
+  var c = Math.cos(aimOffset), n = Math.sin(aimOffset);
+  return { x: pvx + (tx-pvx)*c - (ty-pvy)*n, y: pvy + (tx-pvx)*n + (ty-pvy)*c };
+}
 function drawPhil(){
   var s = 300, pop = popT > 0 ? 1 + 0.12*(popT/0.28) : 1;
   s *= pop;
   var x = W/2 - s/2, y = H - s - 4;
   cx.fillStyle = 'rgba(0,0,0,0.30)';
   cx.beginPath(); cx.ellipse(W/2, H - 26, s*0.34, 20, 0, 0, 6.3); cx.fill();
+  var pvx = x + s*0.42, pvy = y + s*0.88;
+  cx.save();
+  cx.translate(pvx, pvy); cx.rotate(aimOffset); cx.translate(-pvx, -pvy);
   if (imgHunter.width){
-    cx.save();
     cx.shadowColor = 'rgba(0,0,0,0.25)'; cx.shadowBlur = 14; cx.shadowOffsetY = 4;
     cx.drawImage(imgHunter, x, y, s, s);
-    cx.restore();
   }
   var t = performance.now()/1000, u = s/300;
   function fgx(px){ return x + (px/1000)*s; }
@@ -368,6 +385,7 @@ function drawPhil(){
     cx.beginPath(); cx.arc(fgx(515), fgy(402)+18*u, 20*u, Math.PI*1.18, Math.PI*1.82); cx.stroke();
     cx.restore();
   }
+  cx.restore();
   cx.font = 'bold 17px "Courier New",monospace'; cx.textAlign = 'center';
   cx.lineWidth = 4; cx.strokeStyle = '#000';
   var label = mood === 'happy' ? 'JEAN PHIL: THRILLED' : mood === 'crying' ? 'JEAN PHIL: DEVASTATED' : 'JEAN PHIL';
@@ -547,6 +565,7 @@ window.__duck = {
   get mood(){ return mood; }, get round(){ return round; },
   get hits(){ return hits; }, get bullets(){ return bullets; },
   get duckIdx(){ return duckIdx; },
+  get aim(){ return aimOffset; },
   duck: function(){
     var d = liveDuck();
     return d ? { x: d.x, y: d.y, state: d.state } : null;
