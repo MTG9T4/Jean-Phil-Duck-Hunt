@@ -78,7 +78,7 @@ var score = 0, round = 1, duckIdx = 0, hits = 0, bullets = 3;
 var best = parseInt(localStorage.getItem('jp_duck_best') || '0', 10) || 0;
 var ducks = [], feathers = [], flashes = [], clouds = [];
 var mood = 'normal', moodT = 0, popT = 0;   // normal | happy | crying
-var aimOffset = 0;   // rifle tracking angle
+var shotT = -1, shotAngle = 0, swing = 0;   // shoot-swing: rifle swings to each shot, then settles
 var banner = '', bannerT = 0;
 var cross = { x: W/2, y: H/2 - 80 };
 var introT = 0, resolveT = 0, clearT = 0;
@@ -145,8 +145,9 @@ function shoot(sx, sy){
   if (!d || resolveT > 0) return;
   bullets--;
   bang();
+  shotAngle = aimTargetFor(sx, sy); shotT = 0;
   flashes.push({ x: sx, y: sy, t: 0.09 });
-  var gt = gunTip();
+  var gt = gunTip(shotAngle);
   flashes.push({ x: gt.x, y: gt.y, t: 0.12 });
   var hit = null;
   for (var i = 0; i < ducks.length; i++){
@@ -192,8 +193,13 @@ function nextDuckOrEnd(){
 var lastT = 0;
 function update(dt){
   var i, d;
-  var want = aimTargetFor(cross.x, cross.y);
-  aimOffset += (want - aimOffset) * Math.min(1, dt*7);
+  if (shotT >= 0){
+    shotT += dt;
+    var up = 0.09, down = 0.42;
+    if (shotT < up){ var k1 = shotT/up; swing = shotAngle * (1 - Math.pow(1-k1, 3)); }
+    else if (shotT < down){ var k2 = (shotT-up)/(down-up); swing = shotAngle * (1 - k2*k2*(3-2*k2)); }
+    else { shotT = -1; swing = 0; }
+  }
   for (i = 0; i < clouds.length; i++){
     clouds[i].x += 9 * dt;
     if (clouds[i].x > W + 120) clouds[i].x = -120;
@@ -333,11 +339,11 @@ function aimTargetFor(px, py){
   while (ad < -Math.PI) ad += Math.PI*2;
   return Math.max(-0.45, Math.min(0.45, ad));
 }
-function gunTip(){
+function gunTip(a){
   var s = 300, x = W/2 - s/2, y = H - s - 4;
   var pvx = x + s*0.42, pvy = y + s*0.88;
   var tx = x + s*0.06, ty = y + s*0.335;
-  var c = Math.cos(aimOffset), n = Math.sin(aimOffset);
+  var c = Math.cos(a), n = Math.sin(a);
   return { x: pvx + (tx-pvx)*c - (ty-pvy)*n, y: pvy + (tx-pvx)*n + (ty-pvy)*c };
 }
 function drawPhil(){
@@ -348,7 +354,12 @@ function drawPhil(){
   cx.beginPath(); cx.ellipse(W/2, H - 26, s*0.34, 20, 0, 0, 6.3); cx.fill();
   var pvx = x + s*0.42, pvy = y + s*0.88;
   cx.save();
-  cx.translate(pvx, pvy); cx.rotate(aimOffset); cx.translate(-pvx, -pvy);
+  cx.translate(pvx, pvy); cx.rotate(swing);
+  if (shotT >= 0){
+    var kick = 13*Math.exp(-shotT*9), shk = 3*Math.exp(-shotT*13)*Math.sin(shotT*95);
+    cx.translate(shk, kick);
+  }
+  cx.translate(-pvx, -pvy);
   if (imgHunter.width){
     cx.shadowColor = 'rgba(0,0,0,0.25)'; cx.shadowBlur = 14; cx.shadowOffsetY = 4;
     cx.drawImage(mood === 'happy' && imgHappy.width ? imgHappy : mood === 'crying' && imgCry.width ? imgCry : imgHunter, x, y, s, s);
@@ -529,7 +540,6 @@ cv.addEventListener('pointerdown', function(e){
   var p = toGame(e);
   cross.x = Math.max(0, Math.min(W, p.x));
   cross.y = Math.max(0, Math.min(H, p.y));
-  if (e.pointerType === 'touch') aimOffset = aimTargetFor(cross.x, cross.y);
   if (state === 'title'){ startGame(); return; }
   if (state === 'gameover'){ startGame(); return; }
   if (state === 'play'){ shoot(cross.x, cross.y); }
@@ -556,7 +566,7 @@ window.__duck = {
   get mood(){ return mood; }, get round(){ return round; },
   get hits(){ return hits; }, get bullets(){ return bullets; },
   get duckIdx(){ return duckIdx; },
-  get aim(){ return aimOffset; },
+  get aim(){ return swing; },
   duck: function(){
     var d = liveDuck();
     return d ? { x: d.x, y: d.y, state: d.state } : null;
