@@ -79,6 +79,7 @@ var best = parseInt(localStorage.getItem('jp_duck_best') || '0', 10) || 0;
 var ducks = [], feathers = [], flashes = [], clouds = [];
 var mood = 'normal', moodT = 0, popT = 0;   // normal | happy | crying
 var shotT = -1, shotAngle = 0, swingFrom = 0, swing = 0;   // shoot-swing: rifle swings to each shot, then settles
+var shakeT = 0, freezeT = 0;   // screen shake on shoot, hit-stop freeze on hit
 var banner = '', bannerT = 0;
 var cross = { x: W/2, y: H/2 - 80 };
 var introT = 0, resolveT = 0, clearT = 0;
@@ -115,7 +116,7 @@ function setMood(m, t){
 }
 var PRAISE = ['NICE SHOT!', 'PHIL APPROVES', 'BULLSEYE!', 'STRAIGHT UP PHILTHY'];
 function hitDuck(d, sx, sy){
-  d.state = 'fall'; d.fallVy = -140; d.rot = 0;
+  d.state = 'fall'; d.fallVy = -140; d.rot = 0; freezeT = 0.06;
   var pts = 500 * round;
   score += pts;
   hits++; results.push('hit');
@@ -146,6 +147,7 @@ function shoot(sx, sy){
   bullets--;
   bang();
   swingFrom = swing; shotAngle = aimTargetFor(sx, sy); shotT = 0;
+  shakeT = 0.12;
   flashes.push({ x: sx, y: sy, t: 0.09 });
   var gt = gunTip(shotAngle);
   flashes.push({ x: gt.x, y: gt.y, t: 0.12 });
@@ -157,6 +159,15 @@ function shoot(sx, sy){
   }
   if (hit){ hitDuck(hit, sx, sy); }
   else if (bullets <= 0){ missDuck('shells'); }
+  else {
+    var near = false, j, q2;
+    for (j = 0; j < ducks.length; j++){
+      q2 = ducks[j];
+      if (q2.state !== 'fly') continue;
+      if (Math.hypot(q2.x - sx, q2.y - sy) < HIT_R*1.7){ near = true; break; }
+    }
+    if (near && bannerT <= 0){ banner = 'SO CLOSE!'; bannerT = 0.8; }
+  }
 }
 
 /* ---------- flow ---------- */
@@ -216,6 +227,7 @@ function update(dt){
   if (moodT > 0){ moodT -= dt; if (moodT <= 0) mood = 'normal'; }
   if (popT > 0) popT -= dt;
   if (bannerT > 0) bannerT -= dt;
+  if (shakeT > 0) shakeT -= dt;
 
   if (state === 'intro'){
     introT -= dt;
@@ -253,6 +265,7 @@ function update(dt){
     d.y += (d.baseVy + Math.sin(d.wob) * 55) * dt;
     if (d.y < 60){ d.y = 60; d.baseVy = Math.abs(d.baseVy); }
     if (d.y > GRASS - 70){ d.y = GRASS - 70; d.baseVy = -Math.abs(d.baseVy); }
+    if (Math.abs(d.x - W/2) < 210 && d.y > 330){ d.y = 330; d.baseVy = -Math.abs(d.baseVy); }
     if ((d.dir === 1 && d.x > W + 70) || (d.dir === -1 && d.x < -70)){
       ducks.splice(i,1);
       missDuck('escaped');
@@ -483,7 +496,8 @@ function bigText(txt, y, size, color){
   cx.fillStyle = color || '#fff'; cx.fillText(txt, W/2, y);
 }
 function draw(){
-  drawBackground();
+  cx.save();
+  if (shakeT > 0){ var sm = shakeT/0.12; cx.translate((Math.random()-0.5)*6*sm, (Math.random()-0.5)*6*sm); }
   var i;
   for (i = 0; i < ducks.length; i++) drawDuck(ducks[i]);
   drawFeathers();
@@ -520,6 +534,7 @@ function draw(){
     if (imgCry.width) cx.drawImage(imgCry, W/2-75, 370, 150, 150);
     if (Math.floor(performance.now()/500) % 2 === 0) bigText('CLICK TO PLAY AGAIN', 570, 28, '#ffe45c');
   }
+  cx.restore();
 }
 
 /* ---------- input ---------- */
@@ -555,7 +570,7 @@ document.getElementById('mute').addEventListener('click', function(){
 function frame(t){
   var dt = Math.min(0.05, (t - lastT) / 1000 || 0.016);
   lastT = t;
-  update(dt);
+  if (freezeT > 0){ freezeT -= dt; } else { update(dt); }
   draw();
   requestAnimationFrame(frame);
 }
@@ -567,7 +582,7 @@ window.__duck = {
   get mood(){ return mood; }, get round(){ return round; },
   get hits(){ return hits; }, get bullets(){ return bullets; },
   get duckIdx(){ return duckIdx; },
-  get aim(){ return swing; },
+  get aim(){ return swing; }, get banner(){ return banner; }, get shake(){ return shakeT; },
   duck: function(){
     var d = liveDuck();
     return d ? { x: d.x, y: d.y, state: d.state } : null;
