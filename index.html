@@ -356,6 +356,25 @@ function drawPhil(){
   var t = performance.now()/1000, u = s/300;
   function fgx(px){ return x + (px/1000)*s; }
   function fgy(py){ return y + (py/1000)*s; }
+  if (mood === 'crying' && imgCry.width){
+    var eyes = [[555,257],[454,266]], e, k;
+    cx.save();
+    cx.lineCap = 'round';
+    for (e = 0; e < 2; e++){
+      var ex = fgx(eyes[e][0]), ey = fgy(eyes[e][1]);
+      for (k = 0; k < 3; k++){
+        var ph = (t*0.9 + k*0.37 + e*0.2) % 1;
+        var dx = ex + (k-1)*4*u, dy = ey + 6*u + ph*92*u;
+        cx.globalAlpha = 1 - ph*0.55;
+        cx.fillStyle = '#3f9dff';
+        cx.beginPath(); cx.arc(dx, dy+4*u, 6.5*u, 0, 6.3); cx.fill();
+        cx.beginPath(); cx.moveTo(dx-6.5*u, dy+4*u); cx.lineTo(dx, dy-9*u); cx.lineTo(dx+6.5*u, dy+4*u); cx.closePath(); cx.fill();
+        cx.fillStyle = 'rgba(255,255,255,0.75)';
+        cx.fillRect(dx-3.5*u, dy-2*u, 3*u, 6*u);
+      }
+    }
+    cx.restore();
+  }
   cx.restore();
   cx.font = 'bold 17px "Courier New",monospace'; cx.textAlign = 'center';
   cx.lineWidth = 4; cx.strokeStyle = '#000';
