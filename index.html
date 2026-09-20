@@ -192,11 +192,7 @@ function nextDuckOrEnd(){
 var lastT = 0;
 function update(dt){
   var i, d;
-  var haX = W/2 - 96, haY = H - 190;   // his hands, approx
-  var aa = Math.atan2(cross.y - haY, cross.x - haX) - Math.PI, ad = aa;
-  while (ad > Math.PI) ad -= Math.PI*2;
-  while (ad < -Math.PI) ad += Math.PI*2;
-  var want = Math.max(-0.45, Math.min(0.45, ad));
+  var want = aimTargetFor(cross.x, cross.y);
   aimOffset += (want - aimOffset) * Math.min(1, dt*7);
   for (i = 0; i < clouds.length; i++){
     clouds[i].x += 9 * dt;
@@ -329,6 +325,13 @@ function drawDuck(d){
     cx.fillStyle = '#000'; cx.fillRect(16,-15,2,2);
   }
   cx.restore();
+}
+function aimTargetFor(px, py){
+  var haX = W/2 - 96, haY = H - 190;   // his hands, approx
+  var ad = Math.atan2(py - haY, px - haX) - Math.PI;
+  while (ad > Math.PI) ad -= Math.PI*2;
+  while (ad < -Math.PI) ad += Math.PI*2;
+  return Math.max(-0.45, Math.min(0.45, ad));
 }
 function gunTip(){
   var s = 300, x = W/2 - s/2, y = H - s - 4;
@@ -539,6 +542,7 @@ cv.addEventListener('pointerdown', function(e){
   var p = toGame(e);
   cross.x = Math.max(0, Math.min(W, p.x));
   cross.y = Math.max(0, Math.min(H, p.y));
+  if (e.pointerType === 'touch') aimOffset = aimTargetFor(cross.x, cross.y);
   if (state === 'title'){ startGame(); return; }
   if (state === 'gameover'){ startGame(); return; }
   if (state === 'play'){ shoot(cross.x, cross.y); }
