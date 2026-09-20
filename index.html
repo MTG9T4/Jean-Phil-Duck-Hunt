@@ -333,18 +333,39 @@ function drawPhil(){
     cx.drawImage(imgHunter, x, y, s, s);
     cx.restore();
   }
-  if (mood !== 'normal'){
-    var img = mood === 'happy' ? imgHappy : imgCry;
-    var bs = 118 * pop;
-    var bx = W/2 + 178, by = H - 352;
+  var t = performance.now()/1000, u = s/300;
+  function fgx(px){ return x + (px/1000)*s; }
+  function fgy(py){ return y + (py/1000)*s; }
+  if (mood === 'happy'){
+    var mx = fgx(515), my = fgy(402);
     cx.save();
-    cx.fillStyle = 'rgba(255,255,255,0.96)';
-    rr(bx-bs/2-9, by-bs/2-9, bs+18, bs+18, 20); cx.fill();
-    cx.lineWidth = 4; cx.strokeStyle = '#000'; cx.stroke();
-    cx.beginPath();
-    cx.moveTo(bx-bs/2-2, by+bs/2+2); cx.lineTo(bx-bs/2-26, by+bs/2+22); cx.lineTo(bx-bs/2+18, by+bs/2+8);
-    cx.closePath(); cx.fill();
-    if (img.width) cx.drawImage(img, bx-bs/2, by-bs/2, bs, bs);
+    cx.fillStyle = '#5e1414';
+    cx.beginPath(); cx.ellipse(mx, my+5*u, 21*u, 14*u, 0, 0, 6.3); cx.fill();
+    cx.fillStyle = '#fff';
+    rr(mx-17*u, my-6*u, 34*u, 9*u, 4*u); cx.fill();
+    cx.lineWidth = 3*u; cx.strokeStyle = '#3d0d0d';
+    cx.beginPath(); cx.ellipse(mx, my+5*u, 21*u, 14*u, 0, 0, 6.3); cx.stroke();
+    cx.restore();
+  } else if (mood === 'crying'){
+    var eyes = [[555,257],[454,266]], e, k;
+    cx.save();
+    cx.lineCap = 'round';
+    for (e = 0; e < 2; e++){
+      var ex = fgx(eyes[e][0]), ey = fgy(eyes[e][1]);
+      for (k = 0; k < 3; k++){
+        var ph = (t*0.9 + k*0.37 + e*0.2) % 1;
+        var dx = ex + (k-1)*4*u, dy = ey + 6*u + ph*92*u;
+        cx.globalAlpha = 1 - ph*0.55;
+        cx.fillStyle = '#3f9dff';
+        cx.beginPath(); cx.arc(dx, dy+4*u, 6.5*u, 0, 6.3); cx.fill();
+        cx.beginPath(); cx.moveTo(dx-6.5*u, dy+4*u); cx.lineTo(dx, dy-9*u); cx.lineTo(dx+6.5*u, dy+4*u); cx.closePath(); cx.fill();
+        cx.fillStyle = 'rgba(255,255,255,0.75)';
+        cx.fillRect(dx-3.5*u, dy-2*u, 3*u, 6*u);
+      }
+    }
+    cx.globalAlpha = 1;
+    cx.lineWidth = 5*u; cx.strokeStyle = '#5e1414';
+    cx.beginPath(); cx.arc(fgx(515), fgy(402)+18*u, 20*u, Math.PI*1.18, Math.PI*1.82); cx.stroke();
     cx.restore();
   }
   cx.font = 'bold 17px "Courier New",monospace'; cx.textAlign = 'center';
