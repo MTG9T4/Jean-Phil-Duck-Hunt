@@ -78,7 +78,7 @@ var score = 0, round = 1, duckIdx = 0, hits = 0, bullets = 3;
 var best = parseInt(localStorage.getItem('jp_duck_best') || '0', 10) || 0;
 var ducks = [], feathers = [], flashes = [], clouds = [];
 var mood = 'normal', moodT = 0, popT = 0;   // normal | happy | crying
-var shotT = -1, shotAngle = 0, swing = 0;   // shoot-swing: rifle swings to each shot, then settles
+var shotT = -1, shotAngle = 0, swingFrom = 0, swing = 0;   // shoot-swing: rifle swings to each shot, then settles
 var banner = '', bannerT = 0;
 var cross = { x: W/2, y: H/2 - 80 };
 var introT = 0, resolveT = 0, clearT = 0;
@@ -145,7 +145,7 @@ function shoot(sx, sy){
   if (!d || resolveT > 0) return;
   bullets--;
   bang();
-  shotAngle = aimTargetFor(sx, sy); shotT = 0;
+  swingFrom = swing; shotAngle = aimTargetFor(sx, sy); shotT = 0;
   flashes.push({ x: sx, y: sy, t: 0.09 });
   var gt = gunTip(shotAngle);
   flashes.push({ x: gt.x, y: gt.y, t: 0.12 });
@@ -195,8 +195,8 @@ function update(dt){
   var i, d;
   if (shotT >= 0){
     shotT += dt;
-    var up = 0.09, down = 0.42;
-    if (shotT < up){ var k1 = shotT/up; swing = shotAngle * (1 - Math.pow(1-k1, 3)); }
+    var up = 0.11, down = 0.45;
+    if (shotT < up){ var k1 = shotT/up, e1 = k1*k1*(3-2*k1); swing = swingFrom + (shotAngle - swingFrom)*e1; }
     else if (shotT < down){ var k2 = (shotT-up)/(down-up); swing = shotAngle * (1 - k2*k2*(3-2*k2)); }
     else { shotT = -1; swing = 0; }
   }
@@ -356,7 +356,8 @@ function drawPhil(){
   cx.save();
   cx.translate(pvx, pvy); cx.rotate(swing);
   if (shotT >= 0){
-    var kick = 13*Math.exp(-shotT*9), shk = 3*Math.exp(-shotT*13)*Math.sin(shotT*95);
+    var rk = Math.min(1, shotT/0.06), decay = Math.exp(-Math.max(0, shotT-0.06)*8);
+    var kick = 13*Math.sin(rk*Math.PI/2)*decay, shk = 3*rk*decay*Math.sin(shotT*95);
     cx.translate(shk, kick);
   }
   cx.translate(-pvx, -pvy);
