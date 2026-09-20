@@ -15,8 +15,9 @@ check(1, D().shake > 0, `screen shake triggers on shoot (shakeT=${D().shake.toFi
 advance(300);
 
 let d = null, g2 = 0;
-while (!(d = D().duck()) && g2++ < 40) advance(200);
-fire(els.game, 'pointerdown', d.x + 55, d.y); advance(150); // HIT_R=40, near-miss < 68
+while ((!(d = D().duck()) || d.x < 80 || d.x > 880) && g2++ < 40) advance(100);
+const offset = d.x > 480 ? -55 : 55;
+fire(els.game, 'pointerdown', d.x + offset, d.y); advance(150); // HIT_R=40, near-miss < 68
 check(2, D().banner === 'SO CLOSE!', `near-miss banner ("${D().banner}")`);
 advance(1000);
 

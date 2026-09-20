@@ -73,8 +73,10 @@ function trombone(){ beep(196,196,0.15,'sawtooth',0.10,0); beep(165,165,0.15,'sa
 function fanfare(){ var n=[392,523,659,784]; for(var i=0;i<n.length;i++) beep(n[i],n[i],0.13,'square',0.11,i*0.11); }
 
 /* ---------- state ---------- */
-var state = 'title';           // title | intro | play | clear | gameover
+var state = 'title';           // title | intro | play | clear | victory | gameover
 var score = 0, round = 1, duckIdx = 0, hits = 0, bullets = 3;
+var MAX_ROUNDS = 10;
+var DUCKS_PER_ROUND = 5;
 var best = parseInt(localStorage.getItem('jp_duck_best') || '0', 10) || 0;
 var ducks = [], feathers = [], flashes = [], clouds = [];
 var mood = 'normal', moodT = 0, popT = 0;   // normal | happy | crying
@@ -87,8 +89,19 @@ var results = [];              // 'hit' | 'miss' per duck this round
 var tufts = [];
 var HIT_R = 40;
 
-function quota(){ return Math.min(6 + Math.floor((round-1)/2), 8); }
-function duckSpeed(){ return 150 + round * 38; }
+function quota(){
+  // 5 ducks per round:
+  // Rounds 1-3: need 3 (60%)
+  // Rounds 4-7: need 4 (80%)
+  // Rounds 8-10: need 5 (100% perfection!)
+  if (round <= 3) return 3;
+  if (round <= 7) return 4;
+  return 5;
+}
+function duckSpeed(){
+  // Escalating difficulty across 10 rounds (175 px/s up to 490 px/s)
+  return 175 + (round - 1) * 35;
+}
 
 for (var i = 0; i < 3; i++) clouds.push({ x: Math.random()*W, y: 40+Math.random()*120, s: 0.7+Math.random()*0.7 });
 for (var j = 0; j < 46; j++) tufts.push({ x: Math.random()*W, h: 6+Math.random()*10 });
@@ -96,15 +109,19 @@ for (var j = 0; j < 46; j++) tufts.push({ x: Math.random()*W, h: 6+Math.random()
 /* ---------- ducks ---------- */
 function spawnDuck(){
   var dir = Math.random() < 0.5 ? 1 : -1;
+  var spd = duckSpeed() * (0.88 + Math.random()*0.24);
   ducks.push({
     x: dir === 1 ? -60 : W + 60,
-    y: 90 + Math.random()*250,
-    vx: dir * duckSpeed() * (0.85 + Math.random()*0.3),
-    baseVy: (Math.random()-0.5) * 70,
+    y: 80 + Math.random()*240,
+    vx: dir * spd,
+    baseVy: (Math.random()-0.5) * (60 + round * 10),
     dir: dir, flap: 0, flapT: 0, wob: Math.random()*6.28,
+    wobSpd: 4.8 + round * 0.45,
+    wobAmp: 44 + round * 4,
     state: 'fly', rot: 0, fallVy: 0, dead: false
   });
   bullets = 3;
+  banner = ''; bannerT = 0;
   if (Math.random() < 0.6) quack();
 }
 function liveDuck(){
@@ -120,26 +137,26 @@ function hitDuck(d, sx, sy){
   var pts = 500 * round;
   score += pts;
   hits++; results.push('hit');
-  setMood('happy', 1.5);
+  // Character smile screenshot ONLY appears on round win; mid-round stays continuous
   banner = PRAISE[Math.floor(Math.random()*PRAISE.length)] + ' +' + pts;
-  bannerT = 1.5;
+  bannerT = 0.45;
   jingle();
   for (var i = 0; i < 14; i++) feathers.push({
     x: d.x, y: d.y, vx: (Math.random()-0.5)*260, vy: -Math.random()*220,
     life: 0.9, c: Math.random()<0.5 ? '#ffffff' : '#8a5a2b'
   });
   flashes.push({ x: sx, y: sy, t: 0.09 });
-  resolveT = 1.6;   // wait for fall, then next duck
+  resolveT = 0.45;   // quick resolve for continuous gameplay
 }
 function missDuck(reason){
   results.push('miss');
-  setMood('crying', 1.7);
+  // Character crying reaction ONLY appears on round loss; mid-round stays continuous
   banner = reason === 'shells' ? 'OUT OF SHELLS!' : 'HE GOT AWAY...';
-  bannerT = 1.7;
-  trombone();
+  bannerT = 0.8;
+  quack();
   var d = liveDuck();
   if (d && reason === 'shells'){ d.vx *= 1.7; }  // rub it in
-  resolveT = 1.8;
+  resolveT = 0.4;    // quick resolve for continuous gameplay
 }
 function shoot(sx, sy){
   var d = liveDuck();
@@ -175,23 +192,40 @@ function startGame(){
   score = 0; round = 1; duckIdx = 0; hits = 0;
   results = []; ducks = []; feathers = [];
   mood = 'normal'; moodT = 0; banner = '';
-  state = 'intro'; introT = 2.0;
+  state = 'intro'; introT = 1.3;
   fanfare();
 }
 function startRound(){
   duckIdx = 0; hits = 0; results = [];
   ducks = []; feathers = [];
   mood = 'normal'; moodT = 0;
-  state = 'intro'; introT = 2.0;
+  state = 'intro'; introT = 1.3;
   fanfare();
 }
 function nextDuckOrEnd(){
   duckIdx++;
-  if (duckIdx >= 10){
+  if (duckIdx >= DUCKS_PER_ROUND){
     if (hits >= quota()){
-      state = 'clear'; clearT = 2.2; banner = 'ROUND CLEAR!'; bannerT = 2.2; fanfare();
+      if (round >= MAX_ROUNDS){
+        state = 'victory';
+        setMood('happy', 999);
+        banner = 'CHAMPION!'; bannerT = 3.0;
+        fanfare();
+        if (score > best){ best = score; localStorage.setItem('jp_duck_best', String(best)); }
+        for (var f = 0; f < 36; f++) feathers.push({
+          x: Math.random()*W, y: H - 200,
+          vx: (Math.random()-0.5)*300, vy: -200 - Math.random()*260,
+          life: 2.2, c: ['#ffe45c','#3ddc84','#ff5c5c','#6db7ff','#ffffff'][f % 5]
+        });
+      } else {
+        state = 'clear'; clearT = 2.0;
+        setMood('happy', clearT);
+        banner = 'ROUND ' + round + ' CLEAR!'; bannerT = clearT;
+        fanfare();
+      }
     } else {
       state = 'gameover';
+      setMood('crying', 999);
       if (score > best){ best = score; localStorage.setItem('jp_duck_best', String(best)); }
       trombone();
     }
@@ -260,9 +294,9 @@ function update(dt){
     if (d.state !== 'fly') continue;
     d.flapT += dt;
     if (d.flapT > 0.16){ d.flapT = 0; d.flap = 1 - d.flap; }
-    d.wob += dt * 5;
+    d.wob += dt * (d.wobSpd || 5);
     d.x += d.vx * dt;
-    d.y += (d.baseVy + Math.sin(d.wob) * 55) * dt;
+    d.y += (d.baseVy + Math.sin(d.wob) * (d.wobAmp || 55)) * dt;
     if (d.y < 60){ d.y = 60; d.baseVy = Math.abs(d.baseVy); }
     if (d.y > GRASS - 70){ d.y = GRASS - 70; d.baseVy = -Math.abs(d.baseVy); }
     if (Math.abs(d.x - W/2) < 210 && d.y > 330){ d.y = 330; d.baseVy = -Math.abs(d.baseVy); }
@@ -436,12 +470,14 @@ function drawHUD(){
   cx.lineWidth = 4; cx.strokeStyle = '#000';
   cx.strokeText('SCORE ' + score, 16, 32); cx.fillStyle = '#fff'; cx.fillText('SCORE ' + score, 16, 32);
   cx.textAlign = 'center';
-  cx.strokeText('ROUND ' + round, W/2, 32); cx.fillStyle = '#ffe45c'; cx.fillText('ROUND ' + round, W/2, 32);
-  // duck strip
-  for (var i = 0; i < 10; i++){
-    cx.fillStyle = '#000'; cx.fillRect(W-248+i*22, 14, 18, 16);
+  cx.strokeText('ROUND ' + round + '/' + MAX_ROUNDS, W/2, 32); cx.fillStyle = '#ffe45c'; cx.fillText('ROUND ' + round + '/' + MAX_ROUNDS, W/2, 32);
+  // duck strip (DUCKS_PER_ROUND slots)
+  var stripW = DUCKS_PER_ROUND * 26 + 6;
+  var sx = W - 18 - stripW;
+  for (var i = 0; i < DUCKS_PER_ROUND; i++){
+    cx.fillStyle = '#000'; cx.fillRect(sx + i*26, 14, 22, 18);
     cx.fillStyle = i < results.length ? (results[i]==='hit' ? '#3ddc84' : '#ff5c5c') : '#5a6b7d';
-    cx.fillRect(W-246+i*22, 16, 14, 12);
+    cx.fillRect(sx + 2 + i*26, 16, 18, 14);
   }
   // bullets
   cx.textAlign = 'left';
@@ -451,7 +487,7 @@ function drawHUD(){
     rr(110 + b*26, 46, 18, 22, 4); cx.fill();
   }
   cx.textAlign = 'center';
-  cx.strokeText('NEED ' + quota(), W/2, 62); cx.fillStyle = '#ffe45c'; cx.fillText('NEED ' + quota(), W/2, 62);
+  cx.strokeText('NEED ' + quota() + '/' + DUCKS_PER_ROUND, W/2, 62); cx.fillStyle = '#ffe45c'; cx.fillText('NEED ' + quota() + '/' + DUCKS_PER_ROUND, W/2, 62);
 }
 function drawBanner(){
   if (bannerT <= 0 || !banner) return;
@@ -512,28 +548,42 @@ function draw(){
     bigText("JEAN PHIL'S", 105, 64, '#ffe45c');
     bigText('DUCK HUNT', 170, 64, '#3ddc84');
     if (imgHunter.width) cx.drawImage(imgHunter, W/2-125, 195, 250, 250);
-    bigText('ducks are flying. jean phil is watching.', 478, 20, '#fff');
+    bigText('10 rounds of continuous duck-hunting action.', 478, 20, '#fff');
     bigText('aim with mouse / finger - click or tap to shoot', 504, 20, '#fff');
-    bigText('3 shells per duck - hit ' + quota() + ' of 10 to advance', 530, 20, '#fff');
+    bigText('3 shells per duck - ' + DUCKS_PER_ROUND + ' ducks per round', 530, 20, '#fff');
     if (best > 0) bigText('BEST ' + best, 556, 22, '#ffe45c');
     if (Math.floor(performance.now()/500) % 2 === 0) bigText('CLICK TO START', 586, 26, '#ffe45c');
   }
   if (state === 'intro'){
     overlay(0.45);
-    bigText('ROUND ' + round, 260, 72, '#ffe45c');
-    bigText('HIT ' + quota() + ' OF 10 DUCKS', 330, 30, '#fff');
+    bigText('ROUND ' + round + ' OF ' + MAX_ROUNDS, 250, 68, '#ffe45c');
+    bigText('HIT ' + quota() + ' OF ' + DUCKS_PER_ROUND + ' DUCKS TO ADVANCE', 320, 26, '#fff');
+    bigText('GET READY!', 375, 22, '#3ddc84');
   }
   if (state === 'clear'){
-    overlay(0.45);
-    bigText('ROUND CLEAR!', 280, 64, '#3ddc84');
+    overlay(0.5);
+    bigText('ROUND ' + round + ' CLEAR!', 175, 60, '#3ddc84');
+    bigText(hits + ' OF ' + DUCKS_PER_ROUND + ' DUCKS HIT - PHIL APPROVES!', 235, 24, '#ffe45c');
+    if (imgHappy.width) cx.drawImage(imgHappy, W/2-75, 265, 150, 150);
+    bigText('GET READY FOR ROUND ' + (round + 1) + '!', 450, 24, '#fff');
+  }
+  if (state === 'victory'){
+    overlay(0.65);
+    bigText('VICTORY!', 145, 68, '#ffe45c');
+    bigText('ALL ' + MAX_ROUNDS + ' ROUNDS CONQUERED!', 205, 28, '#3ddc84');
+    bigText('SCORE ' + score, 250, 30, '#fff');
+    if (best > 0) bigText('BEST ' + best, 285, 22, '#ffe45c');
+    if (imgHappy.width) cx.drawImage(imgHappy, W/2-75, 310, 150, 150);
+    if (Math.floor(performance.now()/500) % 2 === 0) bigText('CLICK TO PLAY AGAIN', 510, 28, '#ffe45c');
   }
   if (state === 'gameover'){
-    overlay(0.6);
-    bigText('GAME OVER', 200, 72, '#ff5c5c');
-    bigText('SCORE ' + score, 290, 36, '#fff');
-    bigText('BEST ' + best, 340, 28, '#ffe45c');
-    if (imgCry.width) cx.drawImage(imgCry, W/2-75, 370, 150, 150);
-    if (Math.floor(performance.now()/500) % 2 === 0) bigText('CLICK TO PLAY AGAIN', 570, 28, '#ffe45c');
+    overlay(0.65);
+    bigText('GAME OVER', 150, 68, '#ff5c5c');
+    bigText('ROUND ' + round + ' OF ' + MAX_ROUNDS + ' - QUOTA MISSED (' + hits + '/' + quota() + ')', 215, 24, '#ffe45c');
+    bigText('SCORE ' + score, 265, 30, '#fff');
+    if (best > 0) bigText('BEST ' + best, 300, 22, '#ffe45c');
+    if (imgCry.width) cx.drawImage(imgCry, W/2-75, 325, 150, 150);
+    if (Math.floor(performance.now()/500) % 2 === 0) bigText('CLICK TO PLAY AGAIN', 530, 28, '#ffe45c');
   }
   cx.restore();
 }
@@ -557,8 +607,7 @@ cv.addEventListener('pointerdown', function(e){
   var p = toGame(e);
   cross.x = Math.max(0, Math.min(W, p.x));
   cross.y = Math.max(0, Math.min(H, p.y));
-  if (state === 'title'){ startGame(); return; }
-  if (state === 'gameover'){ startGame(); return; }
+  if (state === 'title' || state === 'gameover' || state === 'victory'){ startGame(); return; }
   if (state === 'play'){ shoot(cross.x, cross.y); }
 });
 cv.addEventListener('contextmenu', function(e){ e.preventDefault(); });
